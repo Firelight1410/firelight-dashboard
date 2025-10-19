@@ -1,0 +1,69 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Firelight Chat Dashboard</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; font-family: "Inter", sans-serif; }
+    body { background-color: #111b21; color: #fff; display: flex; height: 100vh; overflow: hidden; }
+    .sidebar { width: 320px; background-color: #202c33; display: flex; flex-direction: column; padding: 15px; border-right: 1px solid #2a3942; }
+    .sidebar h2 { font-size: 18px; text-align: center; margin-bottom: 15px; }
+    .searchbox { background: #2a3942; border: none; border-radius: 10px; padding: 10px 15px; color: #fff; margin-bottom: 15px; outline: none; width: 100%; }
+    .tabs { display: flex; gap: 10px; margin-bottom: 15px; }
+    .tab { flex: 1; text-align: center; padding: 6px 0; border-radius: 20px; background: #2a3942; color: #fff; cursor: pointer; transition: all 0.2s; font-weight: 600; }
+    .tab:hover { background: #008069; }
+    .tab.active { background: #00a884; color: #fff; }
+    .contact-list { flex: 1; overflow-y: auto; }
+    .contact { padding: 10px; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #2a3942; cursor: pointer; transition: background 0.2s; }
+    .contact:hover { background: #2a3942; }
+    .contact-name { font-weight: 600; }
+    .contact-time { color: #aaa; font-size: 12px; }
+    .chat-area { flex: 1; display: flex; flex-direction: column; background-color: #0b141a; }
+    .chat-header { padding: 15px 20px; background-color: #202c33; display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid #2a3942; }
+    .chat-header .name { font-weight: 600; font-size: 16px; }
+    .chat-messages { flex: 1; display: flex; flex-direction: column; padding: 20px; overflow-y: auto; gap: 10px; background-image: radial-gradient(#1f2c33 1px, transparent 1px); background-size: 40px 40px; }
+    .message { max-width: 60%; padding: 8px 12px; border-radius: 10px; word-wrap: break-word; font-size: 14px; line-height: 1.4; }
+    .sent { align-self: flex-end; background-color: #005c4b; }
+    .received { align-self: flex-start; background-color: #202c33; }
+    .chat-input { display: flex; align-items: center; padding: 10px 15px; border-top: 1px solid #2a3942; background-color: #202c33; }
+    .chat-input input { flex: 1; background: #2a3942; border: none; border-radius: 20px; padding: 10px 15px; color: white; outline: none; }
+    .chat-input button { margin-left: 10px; background: #00a884; color: white; border: none; border-radius: 20px; padding: 10px 20px; cursor: pointer; font-weight: 600; }
+    .chat-input button:hover { background: #008069; }
+  </style>
+</head>
+<body>
+  <div class="sidebar">
+    <h2>Dashboard</h2>
+    <input type="text" class="searchbox" placeholder="Search or start a new chat" />
+    <div class="tabs">
+      <div class="tab active" id="tab-all">All</div>
+      <div class="tab" id="tab-unread">Unread</div>
+    </div>
+    <div class="contact-list">
+      <div class="contact"><div class="contact-name">Dr. Chen</div><div class="contact-time">09:42</div></div>
+      <div class="contact"><div class="contact-name">Ben</div><div class="contact-time">Yesterday</div></div>
+      <div class="contact"><div class="contact-name">Alice</div><div class="contact-time">10:24</div></div>
+    </div>
+  </div>
+  <div class="chat-area">
+    <div class="chat-header">
+      <div class="name">Alice</div><div class="status">online</div>
+    </div>
+    <div class="chat-messages">
+      <div class="message received">Hi! I’d like to book a scaling.</div>
+      <div class="message sent">Sure — weekday or weekend?</div>
+    </div>
+    <div class="chat-input">
+      <input type="text" placeholder="Type a message" />
+      <button>Send</button>
+    </div>
+  </div>
+  <script>
+    const allTab = document.getElementById("tab-all");
+    const unreadTab = document.getElementById("tab-unread");
+    allTab.addEventListener("click", () => { allTab.classList.add("active"); unreadTab.classList.remove("active"); });
+    unreadTab.addEventListener("click", () => { unreadTab.classList.add("active"); allTab.classList.remove("active"); });
+  </script>
+</body>
+</html>
