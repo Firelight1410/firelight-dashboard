@@ -1,0 +1,6 @@
+gspread==6.0.0
+google-auth==2.27.0
+python-telegram-bot==20.7
+replicate==0.25.1
+Pillow==10.2.0
+PyPDF2==3.0.1
