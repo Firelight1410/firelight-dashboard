@@ -1,0 +1,36 @@
+# Environment variables with sensitive credentials
+.env
+
+# Service account credentials
+service-account.json
+*.json
+
+# Generated files
+generated_pdfs/*.pdf
+attachments/*
+bank_statements/*
+
+# Logs
+*.log
+
+# Python cache
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Virtual environment
+venv/
+env/
+ENV/
+
+# IDE files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS files
+.DS_Store
+Thumbs.db
