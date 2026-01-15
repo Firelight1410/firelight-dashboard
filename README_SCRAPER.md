@@ -4,10 +4,10 @@ This Python script scrapes addresses of industrial and commercial facilities acr
 
 ## Features
 
-- Uses Google Places API (New) Nearby Search endpoint
+- Uses Google Places API (New) Text Search endpoint
 - Grid-based search: Divides Singapore into 0.05° grid cells
-- Searches each cell with 2000m radius
-- Searches for 8 different facility types
+- Searches each cell with multiple text queries for different facility types
+- 9 different search queries per grid cell
 - Collects unique addresses with automatic deduplication
 - Respects API rate limits and request quotas (max 9,000 requests)
 - Real-time progress logging showing grid cells completed and addresses collected
@@ -22,22 +22,23 @@ The script divides Singapore into a grid and searches each cell systematically:
   - Latitude: 1.15°N to 1.47°N
   - Longitude: 103.6°E to 104.0°E
 - **Total grid cells**: 56 cells (7 × 8 grid)
-- **Search radius**: 2000 meters per cell center
-- **One API request per grid cell**
+- **Queries per grid cell**: 9 text queries
+- **Total API requests**: 56 cells × 9 queries = 504 requests
 
-## Place Types Searched
+## Search Queries
 
-The script searches for the following facility types:
-- manufacturing
-- logistics
-- warehousing
-- distribution
-- food_processing
-- electronics_manufacturing
-- chemical
-- petrochemical
+The script uses the following text queries per grid cell:
+1. "manufacturing companies"
+2. "manufacturing facilities"
+3. "logistics companies"
+4. "warehousing companies"
+5. "distribution centers"
+6. "food processing companies"
+7. "electronics manufacturing"
+8. "chemical companies"
+9. "petrochemical companies"
 
-**Note**: Not all of these types may be valid in Google's official Place Types taxonomy. The API will process valid types and ignore invalid ones.
+These text queries are more effective than place types, as they search for actual business names and descriptions rather than relying on Google's limited place type taxonomy.
 
 ## Requirements
 
@@ -58,10 +59,11 @@ python scrape_singapore_places.py
 
 The script will:
 1. Generate a 7×8 grid covering all of Singapore
-2. Search each grid cell with a 2000m radius
-3. Collect unique addresses from all grid cells
-4. Display progress every 10 cells
-5. Save results to `singapore_addresses.csv`
+2. For each grid cell, run 9 different text search queries
+3. Use locationRestriction to limit results to each grid cell
+4. Collect unique addresses from all searches
+5. Display progress every 5 cells
+6. Save results to `singapore_addresses.csv`
 
 ## Output
 
@@ -73,25 +75,27 @@ The script generates a CSV file named `singapore_addresses.csv` with a single co
 You can modify the following parameters in the script:
 
 - `MAX_REQUESTS`: Maximum number of API requests (default: 9,000)
-- `PLACE_TYPES`: List of place types to search for
+- `SEARCH_QUERIES`: List of text queries to search for
 - `LAT_MIN`, `LAT_MAX`, `LON_MIN`, `LON_MAX`: Geographic boundaries for Singapore
 - `GRID_SIZE`: Grid cell size in degrees (default: 0.05°)
-- `SEARCH_RADIUS`: Search radius per grid cell in meters (default: 2000m)
 - `OUTPUT_FILE`: Output CSV filename
 
 ## API Information
 
-- **Endpoint**: Google Places API (New) - Nearby Search
+- **Endpoint**: Google Places API (New) - Text Search
 - **Field**: formattedAddress (Essentials tier)
 - **Coverage**: All of Singapore via grid search
 - **Grid cells**: 56 total (7 latitude × 8 longitude)
+- **Queries per cell**: 9 text queries
+- **Total requests**: 504 (56 cells × 9 queries)
 - **Max results per request**: 20
 
 ## Progress Logging
 
 The script provides real-time feedback:
-- Per-cell results: Shows coordinates, places found, and new addresses
-- Progress updates every 10 cells with percentage completion
+- Per-cell results: Shows coordinates and total results from all queries in that cell
+- Displays total places found and new unique addresses per cell
+- Progress updates every 5 cells with percentage completion
 - Running totals of unique addresses and API requests
 - Final summary with total cells processed and addresses collected
 
@@ -102,22 +106,25 @@ During execution, you'll see output like this:
 ```
 Grid Search Configuration:
   Grid size: 0.05° cells
-  Search radius: 2000.0m per cell
   Total grid cells: 56
-  Place types: 8
+  Search queries per cell: 9
+  Total searches: 504
   Maximum requests: 9000
 
-Cell 1/56: (1.150, 103.600) → Found 5 places (5 new addresses)
-Cell 2/56: (1.150, 103.650) → Found 3 places (2 new addresses)
+Cell 1/56: (1.175, 103.625)
+  → Found 42 total places, 38 new addresses
+Cell 2/56: (1.175, 103.675)
+  → Found 25 total places, 18 new addresses
 ...
-Cell 10/56: (1.200, 103.750) → No results
+Cell 5/56: (1.225, 103.675)
+  → Found 15 total places, 8 new addresses
 
-📊 Progress: 10/56 cells completed (17.9%)
-   Total addresses: 45 | API requests: 10/9000
+📊 Progress: 5/56 cells completed (8.9%)
+   Total addresses: 145 | API requests: 45/9000
 ```
 
 ## References
 
-- [Google Places API (New) - Nearby Search Documentation](https://developers.google.com/maps/documentation/places/web-service/nearby-search)
-- [Place Types Documentation](https://developers.google.com/maps/documentation/places/web-service/place-types)
+- [Google Places API (New) - Text Search Documentation](https://developers.google.com/maps/documentation/places/web-service/text-search)
 - [Place Data Fields Documentation](https://developers.google.com/maps/documentation/places/web-service/data-fields)
+- [Google Places API Overview](https://developers.google.com/maps/documentation/places/web-service/overview)
