@@ -1,9 +1,12 @@
 #!/usr/bin/env python3
 """
-Google Places API (New) - Singapore Address Scraper
+Google Places API (New) - Singapore Address Scraper (Grid Search)
 
 This script searches for industrial and commercial facilities across Singapore
-using the Google Places API (New) Text Search endpoint.
+using a grid-based approach with the Google Places API (New) Nearby Search endpoint.
+
+The script divides Singapore into a grid of 0.05 degree cells and searches each
+cell for specified facility types.
 
 Requirements:
 - requests library: pip install requests
@@ -13,7 +16,7 @@ import csv
 import json
 import time
 import requests
-from typing import List, Set, Dict, Any
+from typing import List, Set, Dict, Any, Tuple
 
 # Configuration
 API_KEY = "AIzaSyBxMYYMr9XTw4q78oPwEEynPJqY5yyugkc"
@@ -21,52 +24,70 @@ OUTPUT_FILE = "singapore_addresses.csv"
 MAX_REQUESTS = 9000
 
 # API endpoint
-SEARCH_TEXT_URL = "https://places.googleapis.com/v1/places:searchText"
+NEARBY_SEARCH_URL = "https://places.googleapis.com/v1/places:searchNearby"
 
-# Search keywords for different facility types
-SEARCH_TYPES = [
+# Place types to search for
+# Note: These types may not all be valid in Google's Place Types taxonomy.
+# The API will ignore invalid types and search for valid ones.
+PLACE_TYPES = [
     "manufacturing",
     "logistics",
     "warehousing",
     "distribution",
-    "food processing",
-    "electronics manufacturing",
+    "food_processing",
+    "electronics_manufacturing",
     "chemical",
     "petrochemical"
 ]
 
-# Singapore bounding box (approximate)
-# Southwest corner: 1.15°N, 103.6°E
-# Northeast corner: 1.47°N, 104.05°E
-SINGAPORE_BOUNDS = {
-    "rectangle": {
-        "low": {
-            "latitude": 1.15,
-            "longitude": 103.6
-        },
-        "high": {
-            "latitude": 1.47,
-            "longitude": 104.05
-        }
-    }
-}
+# Singapore geographic bounds
+LAT_MIN = 1.15
+LAT_MAX = 1.47
+LON_MIN = 103.6
+LON_MAX = 104.0
+
+# Grid configuration
+GRID_SIZE = 0.05  # degrees
+SEARCH_RADIUS = 2000.0  # meters
 
 
-class PlacesScraper:
-    """Scraper for Google Places API (New)"""
+class GridSearchScraper:
+    """Grid-based scraper for Google Places API (New)"""
 
     def __init__(self, api_key: str):
         self.api_key = api_key
         self.request_count = 0
         self.addresses: Set[str] = set()
+        self.grid_cells = self._generate_grid()
 
-    def search_text(self, query: str, page_token: str = None) -> Dict[str, Any]:
+    def _generate_grid(self) -> List[Tuple[float, float]]:
         """
-        Perform a text search using the Places API (New)
+        Generate grid cell center points across Singapore
+
+        Returns:
+            List of (latitude, longitude) tuples for grid cell centers
+        """
+        cells = []
+
+        # Calculate grid points
+        lat = LAT_MIN
+        while lat <= LAT_MAX:
+            lon = LON_MIN
+            while lon <= LON_MAX:
+                cells.append((lat, lon))
+                lon += GRID_SIZE
+            lat += GRID_SIZE
+
+        return cells
+
+    def nearby_search(self, lat: float, lon: float, included_types: List[str]) -> Dict[str, Any]:
+        """
+        Perform a nearby search using the Places API (New)
 
         Args:
-            query: Search query string
-            page_token: Token for pagination (optional)
+            lat: Latitude of search center
+            lon: Longitude of search center
+            included_types: List of place types to search for
 
         Returns:
             API response as dictionary
@@ -74,101 +95,121 @@ class PlacesScraper:
         headers = {
             "Content-Type": "application/json",
             "X-Goog-Api-Key": self.api_key,
-            "X-Goog-FieldMask": "places.formattedAddress,nextPageToken"
+            "X-Goog-FieldMask": "places.formattedAddress"
         }
 
         body = {
-            "textQuery": f"{query} in Singapore",
-            "locationRestriction": SINGAPORE_BOUNDS,
-            "pageSize": 20  # Maximum results per page
+            "includedTypes": included_types,
+            "maxResultCount": 20,  # Maximum results per request
+            "locationRestriction": {
+                "circle": {
+                    "center": {
+                        "latitude": lat,
+                        "longitude": lon
+                    },
+                    "radius": SEARCH_RADIUS
+                }
+            }
         }
 
-        # Add page token if this is a pagination request
-        if page_token:
-            body["pageToken"] = page_token
-
         try:
-            response = requests.post(SEARCH_TEXT_URL, headers=headers, json=body)
+            response = requests.post(NEARBY_SEARCH_URL, headers=headers, json=body)
             self.request_count += 1
 
             if response.status_code == 200:
                 return response.json()
             else:
-                print(f"Error: HTTP {response.status_code}")
-                print(f"Response: {response.text}")
+                # Don't print errors for every failed request to reduce noise
+                if response.status_code != 400:  # 400 often means no results
+                    print(f"    ⚠️  HTTP {response.status_code}: {response.text[:100]}")
                 return {}
 
         except Exception as e:
-            print(f"Request failed: {e}")
+            print(f"    ⚠️  Request failed: {e}")
             return {}
 
-    def scrape_all_types(self) -> List[str]:
+    def scrape_grid(self) -> List[str]:
         """
-        Scrape all search types and collect unique addresses
+        Scrape all grid cells and collect unique addresses
 
         Returns:
             List of unique addresses
         """
-        print(f"Starting scrape of {len(SEARCH_TYPES)} search types...")
-        print(f"Maximum requests allowed: {MAX_REQUESTS}\n")
+        total_cells = len(self.grid_cells)
 
-        for search_type in SEARCH_TYPES:
+        print(f"Grid Search Configuration:")
+        print(f"  Grid size: {GRID_SIZE}° cells")
+        print(f"  Search radius: {SEARCH_RADIUS}m per cell")
+        print(f"  Total grid cells: {total_cells}")
+        print(f"  Place types: {len(PLACE_TYPES)}")
+        print(f"  Maximum requests: {MAX_REQUESTS}")
+        print()
+
+        cells_completed = 0
+
+        for i, (lat, lon) in enumerate(self.grid_cells, 1):
             if self.request_count >= MAX_REQUESTS:
                 print(f"\n⚠️  Reached maximum request limit ({MAX_REQUESTS})")
                 break
 
-            print(f"Searching for: {search_type}")
-            self._scrape_type(search_type)
+            # Search this grid cell
+            addresses_before = len(self.addresses)
+            self._search_cell(lat, lon, i, total_cells)
+            addresses_found = len(self.addresses) - addresses_before
 
-            # Add a small delay between different search types to be respectful
-            time.sleep(0.5)
+            cells_completed += 1
 
-        print(f"\n✓ Scraping complete!")
-        print(f"Total requests made: {self.request_count}")
-        print(f"Unique addresses found: {len(self.addresses)}")
+            # Progress update every 10 cells
+            if i % 10 == 0 or i == total_cells:
+                print(f"\n📊 Progress: {cells_completed}/{total_cells} cells completed "
+                      f"({cells_completed/total_cells*100:.1f}%)")
+                print(f"   Total addresses: {len(self.addresses)} | "
+                      f"API requests: {self.request_count}/{MAX_REQUESTS}\n")
+
+            # Small delay to be respectful to the API
+            time.sleep(0.2)
+
+        print(f"\n✓ Grid search complete!")
+        print(f"  Cells processed: {cells_completed}/{total_cells}")
+        print(f"  Total requests: {self.request_count}")
+        print(f"  Unique addresses: {len(self.addresses)}")
 
         return sorted(list(self.addresses))
 
-    def _scrape_type(self, search_type: str) -> None:
+    def _search_cell(self, lat: float, lon: float, cell_num: int, total_cells: int) -> None:
         """
-        Scrape all pages for a specific search type
+        Search a single grid cell for all place types
 
         Args:
-            search_type: The type/keyword to search for
+            lat: Cell center latitude
+            lon: Cell center longitude
+            cell_num: Current cell number
+            total_cells: Total number of cells
         """
-        page_num = 1
-        next_page_token = None
-        addresses_found = 0
+        print(f"Cell {cell_num}/{total_cells}: ({lat:.3f}, {lon:.3f})", end=" ")
 
-        while True:
-            if self.request_count >= MAX_REQUESTS:
-                print(f"  ⚠️  Request limit reached")
-                break
+        if self.request_count >= MAX_REQUESTS:
+            print("⚠️  Request limit reached")
+            return
 
-            # Make the API request
-            result = self.search_text(search_type, next_page_token)
+        # Make the API request for this cell with all place types
+        result = self.nearby_search(lat, lon, PLACE_TYPES)
 
-            # Extract addresses from results
-            if "places" in result:
-                for place in result["places"]:
-                    if "formattedAddress" in place:
-                        address = place["formattedAddress"]
-                        if address not in self.addresses:
-                            self.addresses.add(address)
-                            addresses_found += 1
+        # Extract addresses from results
+        new_addresses = 0
+        if "places" in result:
+            for place in result["places"]:
+                if "formattedAddress" in place:
+                    address = place["formattedAddress"]
+                    if address not in self.addresses:
+                        self.addresses.add(address)
+                        new_addresses += 1
 
-            print(f"  Page {page_num}: Found {len(result.get('places', []))} results "
-                  f"({addresses_found} new addresses)")
-
-            # Check if there are more pages
-            next_page_token = result.get("nextPageToken")
-            if not next_page_token:
-                break
-
-            page_num += 1
-            time.sleep(0.3)  # Small delay between pagination requests
-
-        print(f"  Total new addresses from '{search_type}': {addresses_found}\n")
+        places_count = len(result.get("places", []))
+        if places_count > 0:
+            print(f"→ Found {places_count} places ({new_addresses} new addresses)")
+        else:
+            print(f"→ No results")
 
     def save_to_csv(self, filename: str) -> None:
         """
@@ -192,15 +233,15 @@ class PlacesScraper:
 def main():
     """Main execution function"""
     print("=" * 70)
-    print("Google Places API (New) - Singapore Address Scraper")
+    print("Google Places API (New) - Grid Search Scraper")
     print("=" * 70)
     print()
 
     # Initialize scraper
-    scraper = PlacesScraper(API_KEY)
+    scraper = GridSearchScraper(API_KEY)
 
-    # Scrape all search types
-    addresses = scraper.scrape_all_types()
+    # Scrape all grid cells
+    addresses = scraper.scrape_grid()
 
     # Save results to CSV
     scraper.save_to_csv(OUTPUT_FILE)
@@ -211,6 +252,7 @@ def main():
     print(f"Total API requests: {scraper.request_count}/{MAX_REQUESTS}")
     print(f"Unique addresses collected: {len(addresses)}")
     print(f"Output file: {OUTPUT_FILE}")
+    print(f"Average addresses per request: {len(addresses)/scraper.request_count:.2f}")
     print("=" * 70)
 
 
